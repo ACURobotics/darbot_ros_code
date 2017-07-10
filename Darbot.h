@@ -5,6 +5,7 @@
 #include <pigpio.h>
 #include <std_msgs/Float32.h>
 #include <std_msgs/Empty.h>
+#include <std_msgs/String.h>
 
 //Specifies which GPIO pins are used
 #define TRIG 		21
@@ -30,6 +31,7 @@ namespace darbot
 			ros::Publisher left_distance_pub_;
 			ros::Publisher center_distance_pub_;
 			ros::Publisher right_distance_pub_;
+			ros::Publisher distance_pub_;
 			ros::Publisher navigate_pub_;
 
 		private:

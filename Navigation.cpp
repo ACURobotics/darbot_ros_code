@@ -19,6 +19,11 @@ namespace darbot
 		//Defines a Twist message to be rest velocity.		
 		stop.linear.x = 0;
 		stop.angular.z = 0;
+
+		//Initializes distance index as 0.
+		left_index = 0;
+		center_index = 0;
+		right_index = 0;
 	}
 
 	//Destructor that is called whenever Navigation is shut down.
@@ -31,17 +36,68 @@ namespace darbot
 	//Each of the three functions simply serve to record data passed over the distance reader topics. Whenever a message is sent on those topics, ROS calls one of these three callback functions, where the distances will then be stored into class variables. This allows the entire Navigation class to have access to the distance measurements at all times.
 	void Navigation::recordLeft(const std_msgs::Float32 dist)
 	{
-		left_distance = dist.data;
+		left_distance[left_index] = dist.data;
+		left_index++;
+		left_index %= 5;
+
+		if(dist.data == -1)
+		{
+			for(int i=0; i<5; i++)
+			{
+				left_distance[i] = -1;
+			}
+		}
+
+		left_distance_avg = 0;
+		for(int i=0; i<5; i++)
+		{
+			left_distance_avg += left_distance[i];
+		}
+		left_distance_avg /= 5;
 	}
 
 	void Navigation::recordCenter(const std_msgs::Float32 dist)
 	{
-		center_distance = dist.data;
+		center_distance[center_index] = dist.data;
+		center_index++;
+		center_index %= 5;
+
+		if(dist.data == -1)
+		{
+			for(int i=0; i<5; i++)
+			{
+				center_distance[i] = -1;
+			}
+		}
+
+		center_distance_avg = 0;
+		for(int i=0; i<5; i++)
+		{
+			center_distance_avg += center_distance[i];
+		}
+		center_distance_avg /= 5;
 	}
 
 	void Navigation::recordRight(const std_msgs::Float32 dist)
 	{
-		right_distance = dist.data;
+		right_distance[right_index] = dist.data;
+		right_index++;
+		right_index %= 5;
+
+		if(dist.data == -1)
+		{
+			for(int i=0; i<5; i++)
+			{
+				right_distance[i] = -1;
+			}
+		}
+
+		right_distance_avg = 0;
+		for(int i=0; i<5; i++)
+		{
+			right_distance_avg += right_distance[i];
+		}
+		right_distance_avg /= 5;
 	}
 
 	//Once Darbot's publishSensorData() gives Navigation the go-ahead to process the sensor data by sending a message over the "navigate" topic, ROS calls this callback function.
@@ -51,25 +107,25 @@ namespace darbot
 		geometry_msgs::Twist msg;		
 		
 		//If any of the distance measurements have encountered an error, Navigation tells the Darbot to stop.
-		if(left_distance == -1 || center_distance == -1 || right_distance == -1)
+		if(left_distance_avg == -1 || center_distance_avg == -1 || right_distance_avg == -1)
 		{
 			msg = stop;
 		}
 		else
 		{
 			//These booleans are declared to simplify the sensor processesing. If one of the sensors detects that an object is closer than the defined limit (LIMIT is defined in Navigation.h), then its respective boolean is set to true. Otherwise, it is false.
-			bool leftClose = left_distance < LIMIT;
-			bool centerClose = center_distance < LIMIT;
-			bool rightClose = right_distance < LIMIT;
+			bool leftClose = left_distance_avg < LIMIT;
+			bool centerClose = center_distance_avg < LIMIT;
+			bool rightClose = right_distance_avg < LIMIT;
 
 			//These if statements are set up so that some scenarios have precedence over others. The highest priority is if the center is too close. The next highest is if both left and right are too close. Then if right is too close, and finally if left is too close. The priority of left versus right was chosen arbitrarily. However, it should never be an issue, since if both left and right are too close, then the third if statement takes priority.
 			if(leftClose)
 			{
-				//Moves backward for 0.5 seconds.
+				//Moves backward for 1 second.
 				msg.linear.x = -1;
 				msg.angular.z = 0;
 				to_Darbot.publish(msg);
-				ros::Duration(.5).sleep();
+				ros::Duration(1).sleep();
 				
 				//Turns right for 2 seconds.
 				msg.linear.x = 0;
@@ -80,11 +136,11 @@ namespace darbot
 			
 			if(rightClose)
 			{
-				//Moves backward for 0.5 seconds.
+				//Moves backward for 1 second.
 				msg.linear.x = -1;
 				msg.angular.z = 0;
 				to_Darbot.publish(msg);
-				ros::Duration(.5).sleep();
+				ros::Duration(1).sleep();
 				
 				//Turns left for 2 seconds.
 				msg.linear.x = 0;
@@ -105,11 +161,11 @@ namespace darbot
 
 			if(centerClose)
 			{
-				//Moves backwards for 0.5 seconds.
+				//Moves backwards for 1 second.
 				msg.linear.x = -1;
 				msg.angular.z = 0;
 				to_Darbot.publish(msg);
-				ros::Duration(.5).sleep();
+				ros::Duration(1).sleep();
 
 				//First specifies that it will not move forward or backward, then uses the left and right sensor data to determine if it should move left or right, which it then does for 4 seconds.
 				msg.linear.x = 0;
@@ -121,6 +177,15 @@ namespace darbot
 
 				to_Darbot.publish(msg);
 				ros::Duration(4).sleep();
+			}
+
+			if(!leftClose && !centerClose && !rightClose)
+			{
+				//Moves forward for 0.5 seconds.
+				msg.linear.x = 1;
+				msg.angular.z = 0;
+				to_Darbot.publish(msg);
+				ros::Duration(.5).sleep();
 			}
 		}
 	}

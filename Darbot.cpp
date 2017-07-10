@@ -15,6 +15,9 @@ namespace darbot
 		left_distance_pub_ = nh_.advertise<std_msgs::Float32>("left_distance", 1);	
 		center_distance_pub_ = nh_.advertise<std_msgs::Float32>("center_distance", 1);
 		right_distance_pub_ = nh_.advertise<std_msgs::Float32>("right_distance", 1);
+
+		//This Publisher takes all of the data from the ultrasonics and outputs it as a single message. Useful for running rostopic echo
+		distance_pub_ = nh_.advertise<std_msgs::String>("distance", 1);
 		
 		//Used to give Navigation the go-ahead to process the sensor information.
 		navigate_pub_ = nh_.advertise<std_msgs::Empty>("navigate", 1);
@@ -32,7 +35,7 @@ namespace darbot
 		gpioSetMode(LEFTECHO, PI_INPUT);
 		gpioSetMode(CENTERECHO, PI_INPUT);
 		gpioSetMode(RIGHTECHO, PI_INPUT);
-		
+
 		//Makes sure the trigger is settles before it is used by the sensor.
 		gpioWrite(TRIG, 0);
 		ros::Duration(1).sleep();
@@ -140,7 +143,10 @@ namespace darbot
 	
 			//If the limit variable had to be used to exit the loop, the reading must be ignored, so -1 is returned.
 			if(limit >= 100000)
+			{
+				ROS_INFO_STREAM("ECHO Failed to go high");
 				return -1;
+			}
 
 			//Now that ECHO has been set to 5V, the time is recorded.
 			pulse_start = ros::Time::now();
@@ -153,12 +159,21 @@ namespace darbot
 			}
 
 			if(limit >= 100000)
+			{
+				ROS_INFO_STREAM("ECHO failed to go low.");
 				return -1;
+			}
 
 			pulse_end = ros::Time::now();
 
 			//The duration of the ECHO pulse is then calculated and then used to calculate the distance of the object. 17150 was calculated using the speed of sound and the path of the pulse. The distance is measured in cm.
 			ros::Duration duration = pulse_end - pulse_start;
+
+			if(duration.toSec() < 0.0003)
+			{
+				return -1;
+			}
+
 			double distance = duration.toSec()*17150;	
 
 			return distance;
@@ -166,6 +181,7 @@ namespace darbot
 		else
 		{
 			//If the initial trigger pulse failed, -1 is returned.
+			ROS_INFO_STREAM("Trigger pulse failed.");
 			return -1;
 		}
 	}
@@ -185,6 +201,12 @@ namespace darbot
 		std_msgs::Float32 right_dist;
 		right_dist.data = distanceCheck(RIGHTECHO);
 		right_distance_pub_.publish(right_dist);
+
+		//Outputs all of the distances as a single String. Useful for running rostopic echo.
+	//	std_msgs::String dist;
+		
+	//	dist.data = "[" + left_dist.data + ", " + center_dist.data + ", " + right_dist.data + "]";
+		//distance_pub_.publish(dist);
 
 		//Once Navigation has recorded the updated distances, it is given the go-ahead to process the data.
 		std_msgs::Empty navigate;

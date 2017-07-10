@@ -4,7 +4,7 @@
 #include <std_msgs/Empty.h>
 #include <std_msgs/Float32.h>
 
-#define LIMIT 50
+#define LIMIT 40
 
 namespace darbot
 {
@@ -28,8 +28,16 @@ namespace darbot
 
 			geometry_msgs::Twist stop;
 
-			double left_distance;
-			double center_distance;
-			double right_distance;
+			double left_distance_avg;
+			double center_distance_avg;
+			double right_distance_avg;
+
+			double left_distance[5];
+			double center_distance[5];
+			double right_distance[5];
+
+			int left_index;
+			int center_index;
+			int right_index;
 	};
 }
