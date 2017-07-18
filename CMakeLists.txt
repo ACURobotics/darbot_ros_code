@@ -14,20 +14,22 @@ include_directories(include ${catkin_INCLUDE_DIRS})
 
 #add_executable(FileName FileName.cpp)
 
-add_executable(GPIO_subscriber GPIO_subscriber.cpp)
+#add_executable(GPIO_subscriber GPIO_subscriber.cpp)
 add_executable(Darbot Darbot.cpp)
-add_executable(Ultrasonic Ultrasonic.cpp)
+#add_executable(Ultrasonic Ultrasonic.cpp)
 add_executable(Navigation Navigation.cpp)
 
 #Next, add all of the libraries needed here. You should always include ${catkin_LIBRARIES). It is necessary for ROS to work. It also imports the libraries for basic packages such as std_msgs or geometry_msgs
 
-target_link_libraries(GPIO_subscriber pigpio)
-target_link_libraries(GPIO_subscriber ${catkin_LIBRARIES})
+#target_link_libraries(GPIO_subscriber pigpio)
+#target_link_libraries(GPIO_subscriber ${catkin_LIBRARIES})
 
 target_link_libraries(Darbot pigpio)
 target_link_libraries(Darbot ${catkin_LIBRARIES})
 
-target_link_libraries(Ultrasonic pigpio)
-target_link_libraries(Ultrasonic ${catkin_LIBRARIES})
+#target_link_libraries(Ultrasonic pigpio)
+#target_link_libraries(Ultrasonic ${catkin_LIBRARIES})
 
 target_link_libraries(Navigation ${catkin_LIBRARIES})
+
+target_compile_options(Darbot PRIVATE -std=c++11)

@@ -1,0 +1,4 @@
+<launch>
+  <node name="Darbot" pkg="darbot" type="Darbot" />
+  <node name="Navigation" pkg="darbot" type="Navigation" />
+</launch>
