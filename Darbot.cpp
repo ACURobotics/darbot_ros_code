@@ -233,7 +233,7 @@ int main(int argc, char** argv)
 	ros::NodeHandle nh;
 	darbot::Darbot darb = darbot::Darbot(nh);
 
-	ros::Rate loopRate(10);
+	ros::Rate loopRate(15);
 
 
 	//This loop perpetually updates the sensor data. The spinOnce() command ensures that the Publishers and Subscribers are active.	

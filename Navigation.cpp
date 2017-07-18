@@ -239,7 +239,7 @@ int main(int argc, char** argv)
 	ros::NodeHandle nh;
 	darbot::Navigation navi = darbot::Navigation(nh);
 
-	ros::Rate loopRate(11);
+	ros::Rate loopRate(16);
 
 	while(ros::ok()){
 		navi.navigationCallback();

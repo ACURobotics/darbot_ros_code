@@ -20,7 +20,7 @@
 #define CENTERECHO 	20
 #define RIGHTECHO	16
 
-#define ECHO_TIMEOUT	1000 //100 microseconds; we'll try this value and see
+#define ECHO_TIMEOUT	800 //200 microseconds; we'll try this value and see
 #define SENSOR_VAR_THRESH	.1 // only <10% variability between subsequent measurements allowed
 #define SENSOR_TIMEOUT	23250 //this is the maximum number of microseconds to wait for sensor echo
 
