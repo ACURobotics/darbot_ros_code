@@ -43,7 +43,6 @@ namespace darbot
 			ros::Publisher center_distance_pub_;
 			ros::Publisher right_distance_pub_;
 			ros::Publisher distance_pub_;
-//			ros::Publisher navigate_pub_;
 
 		private:
 			int handle;

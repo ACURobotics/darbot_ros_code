@@ -22,12 +22,10 @@ namespace darbot
 			void recordLeft(const std_msgs::Float32 dist);
 			void recordCenter(const std_msgs::Float32 dist);
 			void recordRight(const std_msgs::Float32 dist);
-//			void navigationCallback(const std_msgs::Empty go);
 			void navigationCallback(void);
 
 			ros::NodeHandle nh_;
 			ros::Publisher to_Darbot;
-			//ros::Publisher distance_pub;
 			ros::Subscriber left_distance_reader;
 			ros::Subscriber center_distance_reader;
 			ros::Subscriber right_distance_reader;

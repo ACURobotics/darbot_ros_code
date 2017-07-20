@@ -8,11 +8,14 @@ namespace darbot
 		gpioInitialise();	//Always necessary to use gpio
 		handle = spiOpen(0, 32000, 0);	//Opens SPI channel so that Darbot can write to the digital pots. spiOpen() returns the handle for the channel, which is then saved for later use.
 
+		//Initializes a cache Twist that is used to store the most recent velocity.
 		cache.linear.x = 0;
 		cache.angular.z = 0;
 
 		//Initializes a Subscriber to listen to the cmd_vel topic. This is the topic that Darbot will receive its movement instructions from outside nodes (typically from Navigation, but can be any node that broadcasts on this topic, such as teleop_twist_keyboard). When it receives a message, it calls the velocityCallback function and passes the message as its parameter.
 		velocity_sub_ = nh_.subscribe("cmd_vel", 1, &Darbot::velocityCallback, this);	
+
+		//Used for calibration only
 //		velocity_sub_ = nh_.subscribe("cmd_vel", 1, &Darbot::velCalibrateCallback, this);	
 
 		//These three Publishers are used to send the distances recorded by the three Ultrasonic sensors to the Navigation class, where the information is then copied onto three of Navigation's class variables
@@ -22,9 +25,6 @@ namespace darbot
 
 		//This Publisher takes all of the data from the ultrasonics and outputs it as a single message. Useful for running rostopic echo
 		distance_pub_ = nh_.advertise<std_msgs::String>("distance", 1);
-
-		//Used to give Navigation the go-ahead to process the sensor information.
-//		navigate_pub_ = nh_.advertise<std_msgs::Empty>("navigate", 1);
 
 		//Used to ensure that Darbot will be stationary when turned on.
 		fbSpeed = fbStop;
@@ -42,7 +42,7 @@ namespace darbot
 		gpioSetMode(CENTERECHO, PI_INPUT);
 		gpioSetMode(RIGHTECHO, PI_INPUT);
 
-		//Makes sure the trigger is settles before it is used by the sensor.
+		//Makes sure the trigger is settled before it is used by the sensor.
 		gpioWrite(LTRIG, 0);
 		gpioWrite(CTRIG, 0);
 		gpioWrite(RTRIG, 0);
@@ -73,6 +73,7 @@ namespace darbot
 		lin_vel_ = vel->linear.x;
 		ang_vel_ = vel->angular.z;
 
+		//Checks to see if this velocity command is different from the most recently called one. Saves computation time.
 		if(lin_vel_ != cache.linear.x || ang_vel_ != cache.angular.z)
 		{
 			//Interprets the data to decide how the Darbot should move. First interprets forward/backward, then left/right. Has a deadzone of (-0.3, 0.3). This is necessary if using a virtual joystick. Not necessary if only receiving commands from Navigation. The definitions for forwardFull, backwardFull, etc. are found in motor_control.h and the values were determined experimentally.
@@ -98,8 +99,7 @@ namespace darbot
 			spiWrite(handle, (char*) &fbMessage, 2);
 			spiWrite(handle, (char*) &lrMessage, 2);
 
-//			ROS_INFO_STREAM("SPI was written");
-
+			//Stores the command in the cache.
 			cache.linear.x = lin_vel_;
 			cache.angular.z = ang_vel_;
 		}
@@ -154,11 +154,12 @@ namespace darbot
 		//This function sends a pulse along the trigger pin. If it is sucessful, it will return 0. If it is unsucessful, it bypasses the rest of the sensing entirely.		
 		if(gpioTrigger(triggerPin, 15, 1) == 0)
 		{
+			//Starts the timeout count
 			echoTimeoutStart = gpioTick();
 			echoTime = 0;
 			//ROS will stay in this while loop until the designated echoPin goes to 5V. If something goes wrong and it gets stuck in the loop, the limit variable will cause it to exit.
 			while(gpioRead(echoPin) == 0 && echoTime < ECHO_TIMEOUT){
-				start = gpioTick();
+				start = gpioTick(); //records the clock tick when echoPin goes high
 				echoTime = start-echoTimeoutStart; //use this timeout to escape from the while loop if necessary; start already contains the return value from gpioTick();
 			}
 
@@ -170,27 +171,19 @@ namespace darbot
 				diff = gpioTick()-start; //number of microseconds we've waited
 			}
 
-			//end = gpioTick();
 
+			//The duration of the ECHO pulse is then calculated and then used to determine the distance of the object. 17150 was calculated using the speed of sound and the path of the pulse. The distance is measured in cm.
+			diff = diff*1e-6; //converts from us to s
+			double distance = diff*17200; //converts from s to cm
 
-			//The duration of the ECHO pulse is then calculated and then used to calculate the distance of the object. 17150 was calculated using the speed of sound and the path of the pulse. The distance is measured in cm.
-			//diff = (end-start)*1e-6;
-			diff = diff*1e-6;
-
-
-			double distance = diff*17200;
-
-//			gpioDelay(1000);
-
-			if(distance > 10 && distance < 1000)
+			if(distance > 10 && distance < 1000) //checks to make sure data is not an outlier
 				return distance;
 			else
-				return  400;
+				return  400; //if it is an outlier, it returns 400, the maximum range of the sensor
 		}
 		else
 		{
 			//If the initial trigger pulse failed, -1 is returned.
-//			ROS_INFO_STREAM("Trigger pulse failed.");
 			return -1;
 		}
 	}
@@ -218,10 +211,6 @@ namespace darbot
 		dist.data = "[" + std::to_string(left_dist.data) + ", " + std::to_string(center_dist.data) + ", " + std::to_string(right_dist.data) + "]";
 		distance_pub_.publish(dist);
 */
-		//Once Navigation has recorded the updated distances, it is given the go-ahead to process the data.
-//		std_msgs::Empty navigate;
-//		navigate_pub_.publish(navigate);
-
 	}
 }
 

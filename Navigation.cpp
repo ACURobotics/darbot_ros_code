@@ -6,25 +6,26 @@ namespace darbot
 	Navigation::Navigation(const ros::NodeHandle& nh)
 	: nh_(nh) //Simply stores the value of nh into nh_
 	{
-		//Initializes all of the necessary subsrcibers. Whenever a message is sent on that topic, these subscribers will call the specified callback function and pass the messge as a paramter. The distance readers are published to in the Darbot publishSensorData() function and tell Navigation to record the given values. The navigate_reader waits until Darbot gives Navigation the go-ahead to process the sensor data.
+		//Initializes all of the necessary subsrcibers. Whenever a message is sent on that topic, these subscribers will call the specified callback function and pass the messge as a paramter. The distance readers are published to in the Darbot publishSensorData() function and tell Navigation to record the given values.
 		left_distance_reader = nh_.subscribe("left_distance", 5, &Navigation::recordLeft, this);
 		center_distance_reader = nh_.subscribe("center_distance", 5, &Navigation::recordCenter, this);
 		right_distance_reader = nh_.subscribe("right_distance", 5, &Navigation::recordRight, this);
-		//navigate_reader = nh_.subscribe("navigate", 1, &Navigation::navigationCallback, this);
 
 		//Initializes the Twist publisher. This sends messages to the Darbot class that specify what its current velocity should be.
 		to_Darbot = nh_.advertise<geometry_msgs::Twist>("cmd_vel", 1);
-
-		//distance_pub = nh_.advertise<std_msgs::String>("distance", 1);
 
 		//Defines a Twist message to be rest velocity.
 		stop.linear.x = 0;
 		stop.angular.z = 0;
 
+		//Initializes a cache Twist to store the most recent velocity command.
 		cache.linear.x = 0;
 		cache.angular.z = 0;
 
+		//Used to determine if the Darbot is continually backing up and going forward.
 		backAndForth = false;
+		
+		//Used to store the most recent turn direction. Used in the navigation algorithm.
 		lastTurn = 1;
 
 		left_distance = WINDOWED_AVG_WIDTH*100; //initialize these to 1m*WINDOWED_AVG_WIDTH
@@ -104,17 +105,13 @@ namespace darbot
 		rIndex = (rIndex+1)%WINDOWED_AVG_WIDTH; //increment rIndex
 	}
 
-	//Once Darbot's publishSensorData() gives Navigation the go-ahead to process the sensor data by sending a message over the "navigate" topic, ROS calls this callback function.
-	//void Navigation::navigationCallback(const std_msgs::Empty go)
+	//After obtaining the sensor data, the main function calls this.
 	void Navigation::navigationCallback(void)
 	{
 		//ROS_INFO_STREAM("left: " << (left_distance/WINDOWED_AVG_WIDTH) << "   center: " << (center_distance/WINDOWED_AVG_WIDTH) << "   right: " << (right_distance/WINDOWED_AVG_WIDTH));
 
 		//ROS_INFO_STREAM("left: " << (lIndex) << "   center: " << (cIndex) << "   right: " << (rIndex));
 
-		//std_msgs::String output;
-		//output.data = "[" + std::to_string(left_distance[left_index]) + ", " + std::to_string(center_distance[center_index]) + ", " + std::to_string(right_distance[right_index]) + "]";
-		//distance_pub.publish(output);
 		//Declares a Twist message that will then be initialized according to the sensor data.
 		geometry_msgs::Twist msg;
 
@@ -131,88 +128,51 @@ namespace darbot
 			bool rightClose = right_distance < SIDELIMIT;
 
 
+			//If any of the sensors are tripped, it sends a backup signal to begin the slowdown process.
 			if(leftClose || centerClose || rightClose)
 			{
 				msg.linear.x = -1;
 				msg.angular.z = 0;
 				backAndForth = false;
-				//to_Darbot.publish(msg);
-				//ros::Duration(.5).sleep();
 
 				//These if statements are set up so that some scenarios have precedence over others. The highest priority is if the center is too close. The next highest is if both left and right are too close. Then if right is too close, and finally if left is too close. The priority of left versus right was chosen arbitrarily. However, it should never be an issue, since if both left and right are too close, then the third if statement takes priority.
 				if(leftClose)
 				{
-//					ROS_INFO_STREAM("Nav: close sensor on left");
-					//Moves backward for 2 seconds.
-//					msg.linear.x = -1;
-//					msg.angular.z = 0;
-//					to_Darbot.publish(msg);
-//					ros::Duration(2).sleep();
-
-					//Turns right for 2 seconds.
+					//Turns right.
 					msg.linear.x = 0;
 					msg.angular.z = -1;
 					lastTurn = -1;
-					//to_Darbot.publish(msg);
-					//ros::Duration(.2).sleep();
 				}
 
 				if(rightClose)
 				{
-//					ROS_INFO_STREAM("Nav: close sensor on right");					
-					//Moves backward for 2 seconds.
-//					msg.linear.x = -1;
-//					msg.angular.z = 0;
-//					to_Darbot.publish(msg);
-//					ros::Duration(2).sleep();
-
-					//Turns left for 2 seconds.
+					//Turns left.
 					msg.linear.x = 0;
 					msg.angular.z = 1;
 					lastTurn = 1;
-					//to_Darbot.publish(msg);
-					//ros::Duration(.2).sleep();
 				}
 
 				//Ideally, this if statement would never be satisfied since both leftClose and rightClose are updated nearly continuously and the chances that they would both become too close simultaneously are slim. However, the sensors are not ideal. This is used to hopefully reset the Darbot into a position that it can more easily interpret.
 				if(leftClose && rightClose)
 				{
-					//Moves backward for 2 seconds.
+					//Moves backward.
 					msg.linear.x = -1;
 					msg.angular.z = 0;
-					//to_Darbot.publish(msg);
-					//ros::Duration(.2).sleep();
 				}
 				if(centerClose)
 				{
-					//Moves backwards for 2 seconds.
+					//Moves backwards.
 					msg.linear.x = -1;
 					msg.angular.z = 0;
-					//to_Darbot.publish(msg);
-					//ros::Duration(2).sleep();
-
-					//First specifies that it will not move forward or backward, then uses the left and right sensor data to determine if it should move left or right, which it then does for 4 seconds.
-/*					msg.linear.x = 0;
-
-					if(right_distance < left_distance)
-						msg.angular.z = 1;
-					else
-						msg.angular.z = -1;
-
-					//to_Darbot.publish(msg);
-					//ros::Duration(.4).sleep();
-*/
 				}
 			}
 			else
 			{
-//				ROS_INFO_STREAM("Nav: full ahead");
-				//Moves forward for 0.5 seconds.
+				//Moves forward.
 				msg.linear.x = 1;
 				msg.angular.z = 0;
-				//to_Darbot.publish(msg);
-				//ros::Duration(.5).sleep();
 
+				//Checks to see if the previous command was to move backward. If so, sets backAndForth to true so that Navigation can break the loop.
 				if(cache.linear.x == -1 && cache.angular.z == 0)
 				{
 					backAndForth = true;
@@ -220,11 +180,13 @@ namespace darbot
 			}
 		}
 
+		//If it is moving back and forth, it tacks on a turn command to the Twist. The direction is the same as the last turn that the Darbot made.
 		if(backAndForth)
 		{
 			msg.angular.z = lastTurn;
 		}
 		
+		//Cache is updated
 		cache.linear.x = msg.linear.x;
 		cache.angular.z = msg.angular.z;
 
